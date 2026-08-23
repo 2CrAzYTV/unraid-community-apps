@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CommunityApplications>
   <Profile>2CrAzYTV's central Community Applications repository for Unraid. It publishes the Multi-Coin Paper Daytrader, Alarm-HUB and WebComm Calendar Sync templates while each application keeps its own source repository, documentation, support and container image.</Profile>
-  <Icon>https://raw.githubusercontent.com/2CrAzYTV/unraid-community-apps/main/icons/2crazytv.png</Icon>
+  <Icon>https://raw.githubusercontent.com/2CrAzYTV/multi-coin-paper-daytrader/main/unraid/multi-coin-paper-daytrader.png</Icon>
   <WebPage>https://github.com/2CrAzYTV/unraid-community-apps</WebPage>
   <Forum>https://github.com/2CrAzYTV/unraid-community-apps/issues</Forum>
 </CommunityApplications>
