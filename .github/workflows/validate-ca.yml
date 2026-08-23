@@ -1,0 +1,106 @@
+name: Validate Community Apps repository
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "ca_profile.xml"
+      - "templates/**"
+      - ".github/workflows/validate-ca.yml"
+  pull_request:
+    paths:
+      - "ca_profile.xml"
+      - "templates/**"
+      - ".github/workflows/validate-ca.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate CA XML and defaults
+        shell: python
+        run: |
+          from pathlib import Path
+          import ipaddress
+          import re
+          import sys
+          import xml.etree.ElementTree as ET
+
+          errors = []
+          repo = "2CrAzYTV/unraid-community-apps"
+
+          profile = Path("ca_profile.xml")
+          if not profile.exists():
+              errors.append("ca_profile.xml is missing")
+          else:
+              try:
+                  root = ET.parse(profile).getroot()
+                  if root.tag != "CommunityApplications":
+                      errors.append("ca_profile.xml root must be CommunityApplications")
+                  if not (root.findtext("Profile") or "").strip():
+                      errors.append("ca_profile.xml requires a non-empty Profile")
+              except Exception as exc:
+                  errors.append(f"ca_profile.xml is invalid XML: {exc}")
+
+          required = {
+              "Name", "Repository", "Network", "WebUI", "Icon", "Overview",
+              "Support", "Project", "TemplateURL", "ReadMe", "Category",
+              "Requires", "Changes", "Date", "MinVer", "License"
+          }
+          private_ip_re = re.compile(r"(?<!\d)(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})(?!\d)")
+          token_re = re.compile(r"(?:sk-[A-Za-z0-9_-]{16,}|ghp_[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,})")
+
+          templates = sorted(Path("templates").glob("*.xml"))
+          if len(templates) != 3:
+              errors.append(f"Expected exactly 3 templates, found {len(templates)}")
+
+          for path in templates:
+              text = path.read_text(encoding="utf-8")
+              try:
+                  root = ET.fromstring(text)
+              except Exception as exc:
+                  errors.append(f"{path}: invalid XML: {exc}")
+                  continue
+              if root.tag != "Container":
+                  errors.append(f"{path}: root must be Container")
+                  continue
+
+              missing = [tag for tag in sorted(required) if not (root.findtext(tag) or "").strip()]
+              if missing:
+                  errors.append(f"{path}: missing required fields: {', '.join(missing)}")
+
+              expected = f"https://raw.githubusercontent.com/{repo}/main/{path.as_posix()}"
+              actual = (root.findtext("TemplateURL") or "").strip()
+              if actual != expected:
+                  errors.append(f"{path}: TemplateURL must be {expected}")
+
+              if token_re.search(text):
+                  errors.append(f"{path}: token-like value found")
+
+              for match in private_ip_re.findall(text):
+                  try:
+                      if ipaddress.ip_address(match).is_private:
+                          errors.append(f"{path}: private IP default found: {match}")
+                  except ValueError:
+                      pass
+
+              for cfg in root.findall("Config"):
+                  target = (cfg.attrib.get("Target") or "").upper()
+                  default = (cfg.attrib.get("Default") or "").strip()
+                  value = (cfg.text or "").strip()
+                  required_cfg = (cfg.attrib.get("Required") or "").lower() == "true"
+                  sensitive = any(key in target for key in ("PASSWORD", "TOKEN", "SECRET", "API_KEY"))
+                  if sensitive and not required_cfg and (default or value):
+                      errors.append(f"{path}: optional sensitive field {target} must be empty")
+
+          if errors:
+              print("Validation failed:")
+              for error in errors:
+                  print(f"- {error}")
+              sys.exit(1)
+          print("Community Apps repository validation passed.")
