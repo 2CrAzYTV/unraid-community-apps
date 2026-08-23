@@ -1,6 +1,6 @@
 # 2CrAzYTV Unraid Community Apps
 
-This repository is the central Unraid Community Applications source maintained by **2CrAzYTV**.
+This repository is the central Unraid Community Applications source maintained by **2CrAzYTV** and is the canonical CA repository for all listed apps.
 
 It intentionally contains only Community Apps metadata and templates. The application source code, documentation, support issues and container images remain in the individual project repositories.
 
